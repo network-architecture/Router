@@ -98,7 +98,7 @@ class OFHandler (EventMixin):
     msg = of.ofp_packet_out()
     new_packet = event.pkt
     msg.actions.append(of.ofp_action_output(port=event.port))
-    msg.buffer_id = -1
+    #msg.buffer_id = -1
     msg.in_port = of.OFPP_NONE
     msg.data = new_packet
     self.connection.send(msg)
