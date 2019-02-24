@@ -80,5 +80,43 @@ void sr_handlepacket(struct sr_instance* sr,
 
   /* fill in code here */
 
+  /*For testing only */
+  int isARP = 1;
+  if(isARP){
+	  handle_arpreply(sr, packet);
+  }
 }/* end sr_ForwardPacket */
+
+void handle_arpreq(struct sr_arpreq *request, struct sr_arpcache *cache){
+	if(difftime(time(NULL), request->sent)>1.0){
+		if(request->times_sent >= 5){
+			/* send host unreachable */
+			sr_arpreq_destroy(cache,request);
+		}
+		else{
+			/* send ARP req */
+			request->sent = time(NULL);
+			request->times_sent++;
+		}
+	}
+}
+
+void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
+	struct sr_arpcache arpcache = sr->cache;
+    sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet);
+    struct sr_arpreq *request = sr_arpcache_insert(arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
+	if(request != NULL){
+	    /* Send all packets on request */
+		sr_arpreq_destroy(arpcache,request);
+	}
+}
+
+void send_arpreq(){
+
+	/* send ARP req */
+}
+
+void send_ICMP(){
+	/* send ICMP message */
+}
 

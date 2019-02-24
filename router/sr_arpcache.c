@@ -19,12 +19,12 @@
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
     /* Fill this in */
 	struct sr_arpcache arpcache = sr->cache;
-	struct sr_arpreq current = arpcache.requests;
-	struct sr_arpreq next = current.next;
+	struct sr_arpreq *current = arpcache.requests;
+	struct sr_arpreq *next = current->next;
 	while(next!=NULL){
 		current = next;
-		next = current.next;
-		handle_arpreq(current);
+		next = current->next;
+		handle_arpreq(current, &arpcache);
 	}
 }
 
