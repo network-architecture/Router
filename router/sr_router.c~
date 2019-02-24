@@ -93,7 +93,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
 
 void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len) {
-
 	printf("Receiving IP\n");
 	sr_ip_hdr_t* ip = (sr_ip_hdr_t*)buf;
 	/* check min length */
