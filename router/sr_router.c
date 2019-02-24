@@ -89,7 +89,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		return;
 
 	}
-  
+  printf("Hopscotch");
   int isARP = 1;
   if(isARP){
 	  handle_arpreply(sr, packet);
