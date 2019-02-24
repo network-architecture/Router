@@ -87,10 +87,11 @@ void sr_handlepacket(struct sr_instance* sr,
   }
 }/* end sr_ForwardPacket */
 
+/* Handles sending out ARP requests at the correct time intervals */
 void handle_arpreq(struct sr_arpreq *request, struct sr_arpcache *cache){
 	if(difftime(time(NULL), request->sent)>1.0){
 		if(request->times_sent >= 5){
-			/* send host unreachable */
+			/* send host unreachable ICMP */
 			sr_arpreq_destroy(cache,request);
 		}
 		else{
@@ -101,22 +102,34 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_arpcache *cache){
 	}
 }
 
+/* Handle when an ARP reply is received */
 void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
 	struct sr_arpcache arpcache = sr->cache;
     sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet);
     struct sr_arpreq *request = sr_arpcache_insert(arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
 	if(request != NULL){
-	    /* Send all packets on request */
+	    send_reqpack(request, sr);
 		sr_arpreq_destroy(arpcache,request);
 	}
 }
 
+/* Iterate through and send all packets of a request */
+void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
+	struct sr_packet *current = request->packets;
+	struct sr_packet *next = current->next;
+	if(current!=NULL){
+		sr_send_packet(sr, current->buf, current->len, current->iface);
+	}
+	while(next!=NULL){
+		current = next;
+		next = current->next;
+		sr_send_packet(sr, current->buf, current->len, current->iface);
+	}
+}
+
+/* Sends an ARP request */
 void send_arpreq(){
 
 	/* send ARP req */
-}
-
-void send_ICMP(){
-	/* send ICMP message */
 }
 
