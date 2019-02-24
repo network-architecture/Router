@@ -12,6 +12,8 @@
  **********************************************************************/
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <assert.h>
 
 
@@ -270,7 +272,7 @@ int send_icmp_pkt(struct sr_instance* sr, uint8_t* buf, uint8_t type, uint8_t co
 	struct in_addr i;
 	i.s_addr = ip_icmp_error->ip_dst;
 	char* iface = (sr_rt_search(sr, i))->interface;
-	ip_icmp_error->ip_src =  sr_get_interface(sr, iface)->ip;
+	ip_icmp_error->ip_src = sr_get_interface(sr, iface)->ip;
 	ip_icmp_error->ip_sum = 0;
 	ip_icmp_error->ip_sum = cksum(ip_icmp_error, sizeof(sr_ip_hdr_t));
 	/* add to arp req queue */
