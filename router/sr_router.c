@@ -112,17 +112,6 @@ void handle_arpreq(struct sr_arpreq *request, struct sr_arpcache *cache){
 	}
 }
 
-/* Handle when an ARP reply is received */
-void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
-	struct sr_arpcache arpcache = sr->cache;
-    sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet);
-    struct sr_arpreq *request = sr_arpcache_insert(arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
-	if(request != NULL){
-	    send_reqpack(request, sr);
-		sr_arpreq_destroy(arpcache,request);
-	}
-}
-
 /* Iterate through and send all packets of a request */
 void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
 	struct sr_packet *current = request->packets;
@@ -134,6 +123,17 @@ void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
 		current = next;
 		next = current->next;
 		sr_send_packet(sr, current->buf, current->len, current->iface);
+	}
+}
+
+/* Handle when an ARP reply is received */
+void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
+	struct sr_arpcache arpcache = sr->cache;
+    sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet);
+    struct sr_arpreq *request = sr_arpcache_insert(&arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
+	if(request != NULL){
+	    send_reqpack(request, sr);
+		sr_arpreq_destroy(&arpcache,request);
 	}
 }
 
