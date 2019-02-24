@@ -80,7 +80,17 @@ void sr_handlepacket(struct sr_instance* sr,
 
   /* fill in code here */
 
-  /*For testing only */
+  /* Check table for ip->mac */
+  sr_ip_hdr_t *ip_hdr = (sr_ip_hdr_t *)(packet);
+  struct sr_arpentry entry = *sr_arpcache_lookup(sr->cache, ip_hdr->ip_dst);
+  if(entry!=NULL){
+
+  }
+  else{
+
+  }
+
+  /* For handling ARP replies */
   int isARP = 1;
   if(isARP){
 	  handle_arpreply(sr, packet);
