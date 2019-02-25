@@ -79,7 +79,6 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("*** -> Received packet of length %d \n",len);
 
   /* fill in code here */
-
   
   uint16_t my_ethertype = ethertype(packet);
 	switch (my_ethertype) {
