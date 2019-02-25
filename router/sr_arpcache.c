@@ -22,7 +22,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 	struct sr_arpreq *current = arpcache.requests;
 	struct sr_arpreq *next = current->next;
 	if(current!=NULL){
-		handle_arpreq(current, &arpcache);
+		handle_arpreq(sr, current, &arpcache);
 	}
 	while(next!=NULL){
 		current = next;
