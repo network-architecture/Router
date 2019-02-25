@@ -87,7 +87,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 	case ethertype_ip:
 		printf("The packet is a data packet\n");
-		sr_handle_ip(sr, packet + sizeof(sr_ethernet_hdr_t), len - sizeof(sr_ethernet_hdr_t));
+		sr_handle_ip(sr, packet + sizeof(sr_ethernet_hdr_t), len - sizeof(sr_ethernet_hdr_t), interface);
 		return;
 	case ethertype_arp:
 		printf("The packet is an ARP request/reply\n");
@@ -104,7 +104,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_
 			sr_arpreq_destroy(cache,request);
 		}
 		else{
-			/* send ARP req */
+			send_arpreq(sr, request);
 			request->sent = time(NULL);
 			request->times_sent++;
 		}
@@ -113,6 +113,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_
 
 /* Iterate through and send all packets of a request */
 void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
+	printf("Sending request packets\n");
 	struct sr_packet *current = request->packets;
 	if(current!=NULL){
 		sr_send_packet(sr, current->buf, current->len, current->iface);
@@ -144,11 +145,15 @@ void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
 }
 
 /* Sends an ARP request */
-void send_arpreq(){
-	/* send ARP req */
+void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request){
+	printf("Sending ARP request\n");
+	uint8_t *buf = malloc(56*sizeof(uint8_t));
+	sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(buf);
+	/* TODO FILL WITH DATA */
+	sr_send_packet(sr, buf , 56 , request->packets->iface);
 }
 
-void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len) {
+void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len, const char* iface) {
 
 	printf("Receiving IP\n");
 	sr_ip_hdr_t* my_ip = (sr_ip_hdr_t*)buf;
@@ -217,8 +222,9 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len) {
 			printf("found next hop\n");
 			struct sr_arpentry *entry = sr_arpcache_lookup(&sr->cache, (uint32_t)nxt_hp->dest.s_addr);
 			if(entry!=NULL){
-				/* SEND PACKET TO FOUND IP */
-				free(entry);
+				/* TODO CHANGE DATA TO BE CORRECT */
+				sr_send_packet(sr , buf , len , iface);
+				sr_arpreq_destroy(&sr->cache, entry);
 			}
 			else{
 				struct sr_arpreq *request = sr_arpcache_queuereq(&sr->cache, entry->ip,buf,len,nxt_hp->interface);
