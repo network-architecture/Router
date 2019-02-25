@@ -28,26 +28,22 @@
  * searches for the longest prefix match ip address in the routing table
  * and returns the next hop
  *---------------------------------------------------------------------*/
-struct sr_rt* sr_rt_search(struct sr_instance* sr, struct in_addr dest) {
-	struct sr_rt* rt_i = sr->routing_table;
-	struct sr_rt* best_match = 0;
-	uint32_t match_len = 0;
-
-	while (rt_i != 0) {
-		/* compare ip addr components */
-		if((dest.s_addr & rt_i->mask.s_addr) == (rt_i->dest.s_addr & rt_i->mask.s_addr)){
-            printf("partial match found\n");
-			/* match */
-			if(rt_i->mask.s_addr >= match_len) {
-				match_len = rt_i->mask.s_addr;
-				best_match = rt_i;
-			}
+struct sr_rt* sr_LPM(struct sr_instance* sr,uint32_t tip){
+	struct sr_rt* ret = 0;
+	uint32_t best = 0,mask;
+	struct sr_rt* rt_walker = sr->routing_table;
+	while(rt_walker){
+		mask = rt_walker->mask.s_addr;
+		if((mask&rt_walker->dest.s_addr)==(mask&tip)){
+		   	if(!ret||(mask>best)){
+		   		ret = rt_walker;
+		   		best = mask;
+		   	}
 		}
-	    rt_i = rt_i->next;
+		rt_walker = rt_walker->next;
 	}
-	return best_match;	
+	return ret;
 }
-
 
 /*---------------------------------------------------------------------
  * Method:
