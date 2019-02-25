@@ -89,7 +89,7 @@ void sr_handlepacket(struct sr_instance* sr,
 		sr_handle_ip(sr, packet + sizeof(sr_ethernet_hdr_t), len - sizeof(sr_ethernet_hdr_t));
 		return;
 	case ethertype_arp:
-		printf("The packet is an ARP reply\n");
+		printf("The packet is an ARP request/reply\n");
 		handle_arpreply(sr, packet);
 	}
 
@@ -113,9 +113,12 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_
 /* Iterate through and send all packets of a request */
 void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
 	struct sr_packet *current = request->packets;
-	struct sr_packet *next = current->next;
 	if(current!=NULL){
 		sr_send_packet(sr, current->buf, current->len, current->iface);
+	}
+	struct sr_packet *next = NULL;
+	if(current!=NULL && current->next!=NULL){
+		next = current->next;
 	}
 	while(next!=NULL){
 		current = next;
@@ -130,8 +133,12 @@ void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
     sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet);
     struct sr_arpreq *request = sr_arpcache_insert(&arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
 	if(request != NULL){
+		printf("ARP found in cache\n");
 	    send_reqpack(request, sr);
 		sr_arpreq_destroy(&arpcache,request);
+	}
+	else{
+		printf("ARP not found in cache\n");
 	}
 }
 
