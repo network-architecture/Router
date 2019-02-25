@@ -13,6 +13,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <stdlib.h>
 
 
 #include "sr_if.h"
@@ -84,9 +85,11 @@ void sr_handlepacket(struct sr_instance* sr,
 	switch (my_ethertype) {
 
 	case ethertype_ip:
+		printf("The packet is a data packet\n");
 		sr_handle_ip(sr, packet + sizeof(sr_ethernet_hdr_t), len - sizeof(sr_ethernet_hdr_t));
 		return;
 	case ethertype_arp:
+		printf("The packet is an ARP reply\n");
 		handle_arpreply(sr, packet);
 	}
 
