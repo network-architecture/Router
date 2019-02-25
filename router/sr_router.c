@@ -87,21 +87,17 @@ void sr_handlepacket(struct sr_instance* sr,
 	case ethertype_ip:
 		sr_handle_ip(sr, packet + sizeof(sr_ethernet_hdr_t), len - sizeof(sr_ethernet_hdr_t));
 		return;
-
+	case ethertype_arp:
+		handle_arpreply(sr, packet);
 	}
-  printf("Hopscotch");
-  int isARP = 1;
-  if(isARP){
-	  handle_arpreply(sr, packet);
-  }
 
 }/* end sr_ForwardPacket */
 
 /* Handles sending out ARP requests at the correct time intervals */
-void handle_arpreq(struct sr_arpreq *request, struct sr_arpcache *cache){
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
 	if(difftime(time(NULL), request->sent)>1.0){
 		if(request->times_sent >= 5){
-			/* send host unreachable ICMP */
+			send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_host);
 			sr_arpreq_destroy(cache,request);
 		}
 		else{
@@ -206,8 +202,15 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len) {
 		}
 		else {
 			printf("found next hop\n");
-			sr_arpcache_queuereq(&sr->cache, (uint32_t)nxt_hp->dest.s_addr,buf, len, nxt_hp->interface);
-			printf("create and add arp req\n");
+			struct sr_arpentry *entry = sr_arpcache_lookup(&sr->cache, (uint32_t)nxt_hp->dest.s_addr);
+			if(entry!=NULL){
+				/* SEND PACKET TO FOUND IP */
+				free(entry);
+			}
+			else{
+				struct sr_arpreq *request = sr_arpcache_queuereq(&sr->cache, entry->ip,buf,len,nxt_hp->interface);
+				handle_arpreq(sr,request,&sr->cache);
+			}
 			return;
 		}
 	}
