@@ -18,7 +18,6 @@
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
 	/* Fill this in */
-	printf("Sweeping\n");
 	struct sr_arpcache arpcache = sr->cache;
 	struct sr_arpreq *current = arpcache.requests;
 	if(current!=NULL){

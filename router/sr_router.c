@@ -81,7 +81,7 @@ void sr_handlepacket(struct sr_instance* sr,
   printf("*** -> Received packet of length %d \n",len);
 
   /* fill in code here */
-  
+  /* print_hdrs(packet, len); */
   uint16_t my_ethertype = ethertype(packet);
 	switch (my_ethertype) {
 
@@ -90,11 +90,51 @@ void sr_handlepacket(struct sr_instance* sr,
 		sr_handle_ip(sr, packet + sizeof(sr_ethernet_hdr_t), len - sizeof(sr_ethernet_hdr_t), interface);
 		return;
 	case ethertype_arp:
-		printf("The packet is an ARP request/reply\n");
-		handle_arpreply(sr, packet);
+		choose_arp(sr, packet, len, interface);
+		return;
 	}
 
 }/* end sr_ForwardPacket */
+
+/* Choose ARP */
+void choose_arp(struct sr_instance* sr, uint8_t * packet, unsigned int len, const char* iface){
+	sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet+ sizeof(sr_ethernet_hdr_t));
+	switch (ntohs(arp_hdr->ar_op)) {
+	case arp_op_request:
+		printf("The packet is an ARP request\n");
+		handle_arprequest(sr, packet, len, iface);
+		return;
+	case arp_op_reply:
+		printf("The packet is an ARP reply\n");
+		handle_arpreply(sr, packet);
+		return;
+	}
+}
+
+/* Handle ARP request */
+void handle_arprequest(struct sr_instance* sr, uint8_t * packet, unsigned int len, const char* iface){
+	sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet+ sizeof(sr_ethernet_hdr_t));
+	sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
+	if(sr->if_list->ip == arp_hdr->ar_tip){
+		uint8_t *buf = malloc(len*sizeof(uint8_t));
+		sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)buf;
+		sr_arp_hdr_t *arphdr = (sr_arp_hdr_t *)(buf+sizeof(sr_ethernet_hdr_t));
+		memcpy(ehdr->ether_dhost, arp_hdr->ar_sha, 6);
+		memcpy(ehdr->ether_shost, sr->if_list->addr, 6);
+		ehdr->ether_type = eth_hdr->ether_type;
+		arphdr->ar_op = htons(arp_op_reply);
+		arphdr->ar_hrd = arp_hdr->ar_hrd;
+		arphdr->ar_pro = arp_hdr->ar_pro;
+		arphdr->ar_hln = arp_hdr->ar_hln;
+		arphdr->ar_pln = arp_hdr->ar_pln;
+		memcpy(arphdr->ar_sha, sr->if_list->addr, 6);
+		arphdr->ar_sip = sr->if_list->ip;
+		memcpy(arphdr->ar_tha, arp_hdr->ar_sha, 6);
+		arphdr->ar_tip = arp_hdr->ar_sip;
+		printf("Sending ARP reply\n");
+		sr_send_packet(sr, buf, len, sr->if_list->name);
+	}
+}
 
 /* Handles sending out ARP requests at the correct time intervals */
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
@@ -132,7 +172,7 @@ void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
 /* Handle when an ARP reply is received */
 void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
 	struct sr_arpcache arpcache = sr->cache;
-    sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet);
+    sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet+ sizeof(sr_ethernet_hdr_t));
     struct sr_arpreq *request = sr_arpcache_insert(&arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
 	if(request != NULL){
 		printf("ARP found in cache\n");
