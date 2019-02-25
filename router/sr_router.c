@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdlib.h>
+#include <string.h>
 
 
 #include "sr_if.h"
@@ -99,7 +100,7 @@ void sr_handlepacket(struct sr_instance* sr,
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
 	if(difftime(time(NULL), request->sent)>1.0){
 		if(request->times_sent >= 5){
-			send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_host);
+			send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_dest_host);
 			sr_arpreq_destroy(cache,request);
 		}
 		else{
@@ -143,49 +144,52 @@ void send_arpreq(){
 void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len) {
 
 	printf("Receiving IP\n");
-	sr_ip_hdr_t* ip = (sr_ip_hdr_t*)buf;
+	sr_ip_hdr_t* my_ip = (sr_ip_hdr_t*)buf;
 	/* check min length */
 	if (len < sizeof(sr_ip_hdr_t)) {
 		printf("Packet too small\n");
 		return;
 	}
 	/* check checksum */
-	uint16_t rcv_cksum = ntohs(ip->ip_sum);
-	ip->ip_sum = 0;
-	uint16_t cal_cksum = ntohs(cksum(ip,sizeof(sr_ip_hdr_t)));  
-	if (rcv_cksum != cal_cksum) {
+	uint16_t received_cksum = ntohs(my_ip->ip_sum);
+	my_ip->ip_sum = 0;
+	uint16_t calculated_cksum = ntohs(cksum(my_ip, sizeof(sr_ip_hdr_t)));  
+	if (received_cksum != calculated_cksum) {
 		printf("Checksum wrong\n");
 		return;
 	}
 	
-	uint8_t ttl = ip->ip_ttl;
-	if (ttl <= 1) {
+	
+	uint8_t my_ttl = my_ip->ip_ttl;
+	if (my_ttl <= 1) {
 		/* send ICMP packet: timeout */
-		printf("packet timed out\n");
-		send_icmp_pkt(sr, buf, icmp_time_exceeded, icmp_ttl_exceeded); 
+		printf("TTL is zero\n");
+		send_icmp_pkt(sr, buf, icmp_time_exceeded, icmp_ttl_zero); 
 		return;
 	}
 	
-	ip->ip_ttl = ttl - 1;
-	ip->ip_sum = htons(cksum(ip, sizeof(sr_ip_hdr_t)));
-	uint32_t addr = ntohs(ip->ip_dst);
-	struct sr_if* local_interface = sr->if_list;
-	while(local_interface != 0 && addr != local_interface->ip) {
-		local_interface = local_interface->next;
+	/* my_ip->ip_ttl = ttl - 1; */
+	my_ip->ip_ttl--;
+	my_ip->ip_sum = htons(cksum(my_ip, sizeof(sr_ip_hdr_t)));
+	uint32_t my_addr = ntohs(my_ip->ip_dst);
+	struct sr_if* to_local_interface = sr->if_list;
+	while(to_local_interface != 0 && my_addr != to_local_interface->ip) {
+		to_local_interface = to_local_interface->next;
 	}
 
-	if(local_interface != 0) {
+	if (to_local_interface != 0) {
 		printf("packet sent to local addr\n");
-		if(ip->ip_p != ip_protocol_icmp) {
-			/* TCP/UDP payload, discard and send ICMP port unreachable type 3 code 3 */
+		if (my_ip->ip_p == ip_protocol_tcp || my_ip->ip_p == ip_protocol_tcp) {
+			/* TCP/UDP payload */
 			send_icmp_pkt(sr, buf, icmp_unreachable, icmp_port);
+			printf("ICMP port unreachable\n");
 			return; 
 		}
-		else {
+		else if (my_ip->ip_p == ip_protocol_icmp) {
 			sr_icmp_hdr_t *icmp = (sr_icmp_hdr_t*)(buf + sizeof(sr_ip_hdr_t));
-			if (icmp->icmp_type == icmp_echo) {
+			if (icmp->icmp_type == icmp_echo_reply) {
 				send_icmp_pkt(sr, buf, icmp_echo_reply, 0);
-				printf("echo request\n");
+				printf("ICMP echo reply\n");
 				return;
 			}
 		}
@@ -194,12 +198,12 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len) {
 		/*check routing table for longest prefix match to get next hop IP/interface*/
 		printf("checking routing table\n");
 		struct in_addr in_ip;
-		in_ip.s_addr = ip->ip_dst;
+		in_ip.s_addr = my_ip->ip_dst;
 		struct sr_rt* nxt_hp = sr_rt_search(sr, in_ip);
 		if (nxt_hp == 0) {
 			printf("next hop not found\n");
 			/* send ICMP net unreachable */
-			send_icmp_pkt(sr, buf, icmp_unreachable, icmp_net);
+			send_icmp_pkt(sr, buf, icmp_unreachable, icmp_dest_net);
 			return; 
 		}
 		else {
@@ -282,4 +286,3 @@ int send_icmp_pkt(struct sr_instance* sr, uint8_t* buf, uint8_t type, uint8_t co
 	sr_arpcache_queuereq(&sr->cache, ip_icmp_error->ip_dst, block, sizeof(block), iface);
 	return 0;
 }
-

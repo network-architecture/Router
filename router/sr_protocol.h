@@ -102,15 +102,14 @@ struct sr_icmp_t3_hdr {
 typedef struct sr_icmp_t3_hdr sr_icmp_t3_hdr_t;
 
 enum sr_icmp_type {
-	icmp_echo = 0x0008,
+	icmp_echo_reply = 0x0000,
   	icmp_unreachable = 0x0003,
-  	icmp_echo_reply = 0x0000,
 	icmp_time_exceeded = 0x0011,
 };
 
 enum sr_icmp_code {
-  icmp_net, icmp_ttl_exceeded = 0x0000,
-  icmp_host = 0x0001,
+  icmp_dest_net, icmp_ttl_zero = 0x0000,
+  icmp_dest_host = 0x0001,
   icmp_port = 0x0003,
 };
 
@@ -163,6 +162,8 @@ typedef struct sr_ethernet_hdr sr_ethernet_hdr_t;
 
 enum sr_ip_protocol {
   ip_protocol_icmp = 0x0001,
+  ip_protocol_udp = 0x0011,
+  ip_protocol_tcp = 0x0006,
 };
 
 enum sr_ethertype {
