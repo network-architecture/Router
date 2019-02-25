@@ -102,9 +102,8 @@ struct sr_icmp_t3_hdr {
 typedef struct sr_icmp_t3_hdr sr_icmp_t3_hdr_t;
 
 enum sr_icmp_type {
-	icmp_echo = 0x0008,
+	icmp_echo_reply = 0x0000,
   	icmp_unreachable = 0x0003,
-  	icmp_echo_reply = 0x0000,
 	icmp_time_exceeded = 0x0011,
 };
 

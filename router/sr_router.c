@@ -89,21 +89,18 @@ void sr_handlepacket(struct sr_instance* sr,
 	case ethertype_ip:
 		sr_handle_ip(sr, packet + sizeof(sr_ethernet_hdr_t), len - sizeof(sr_ethernet_hdr_t));
 		return;
-
+	case ethertype_arp:
+		handle_arpreply(sr, packet);	
 	}
-  printf("Hopscotch");
-  int isARP = 1;
-  if(isARP){
-	  handle_arpreply(sr, packet);
-  }
 
 }/* end sr_ForwardPacket */
 
 /* Handles sending out ARP requests at the correct time intervals */
-void handle_arpreq(struct sr_arpreq *request, struct sr_arpcache *cache){
+void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
 	if(difftime(time(NULL), request->sent)>1.0){
 		if(request->times_sent >= 5){
 			/* send host unreachable ICMP */
+			send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_host);
 			sr_arpreq_destroy(cache,request);
 		}
 		else{
@@ -131,10 +128,10 @@ void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
 /* Handle when an ARP reply is received */
 void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
 	struct sr_arpcache arpcache = sr->cache;
-    sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet);
-    struct sr_arpreq *request = sr_arpcache_insert(&arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
+	sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet);
+        struct sr_arpreq *request = sr_arpcache_insert(&arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
 	if(request != NULL){
-	    send_reqpack(request, sr);
+		send_reqpack(request, sr);
 		sr_arpreq_destroy(&arpcache,request);
 	}
 }
@@ -187,7 +184,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len) {
 		}
 		else {
 			sr_icmp_hdr_t *icmp = (sr_icmp_hdr_t*)(buf + sizeof(sr_ip_hdr_t));
-			if (icmp->icmp_type == icmp_echo) {
+			if (icmp->icmp_type == ICMP_echo_reply) {
 				send_icmp_pkt(sr, buf, icmp_echo_reply, 0);
 				printf("echo request\n");
 				return;
@@ -208,6 +205,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len) {
 		}
 		else {
 			printf("found next hop\n");
+			
 			sr_arpcache_queuereq(&sr->cache, (uint32_t)nxt_hp->dest.s_addr,buf, len, nxt_hp->interface);
 			printf("create and add arp req\n");
 			return;
