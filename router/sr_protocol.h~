@@ -108,8 +108,8 @@ enum sr_icmp_type {
 };
 
 enum sr_icmp_code {
-  ICMP_net, ICMP_ttl_exceeded = 0x0000,
-  icmp_host = 0x0001,
+  icmp_dest_net, icmp_ttl_zero = 0x0000,
+  icmp_dest_host = 0x0001,
   icmp_port = 0x0003,
 };
 
