@@ -97,7 +97,7 @@ void sr_handlepacket(struct sr_instance* sr,
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
 	if(difftime(time(NULL), request->sent)>1.0){
 		if(request->times_sent >= 5){
-			send_icmp_pk(sr, request->packets->buf, icmp_unreachable, icmp_host);
+			send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_host);
 			sr_arpreq_destroy(cache,request);
 		}
 		else{
