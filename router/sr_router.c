@@ -120,70 +120,98 @@ void choose_arp(struct sr_instance* sr, uint8_t * packet, unsigned int len, cons
 void handle_arprequest(struct sr_instance* sr, uint8_t * packet, unsigned int len, const char* iface){
 	sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet+ sizeof(sr_ethernet_hdr_t));
 	sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *)packet;
-	if(sr->if_list->ip == arp_hdr->ar_tip){
+	struct sr_if* interface = sr_get_interface(sr, iface);
+	if(interface->ip == arp_hdr->ar_tip){
 		uint8_t *buf = malloc(len*sizeof(uint8_t));
 		sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)buf;
 		sr_arp_hdr_t *arphdr = (sr_arp_hdr_t *)(buf+sizeof(sr_ethernet_hdr_t));
 		memcpy(ehdr->ether_dhost, arp_hdr->ar_sha, 6);
-		memcpy(ehdr->ether_shost, sr->if_list->addr, 6);
+		memcpy(ehdr->ether_shost, interface->addr, 6);
 		ehdr->ether_type = eth_hdr->ether_type;
 		arphdr->ar_op = htons(arp_op_reply);
 		arphdr->ar_hrd = arp_hdr->ar_hrd;
 		arphdr->ar_pro = arp_hdr->ar_pro;
 		arphdr->ar_hln = arp_hdr->ar_hln;
 		arphdr->ar_pln = arp_hdr->ar_pln;
-		memcpy(arphdr->ar_sha, sr->if_list->addr, 6);
-		arphdr->ar_sip = sr->if_list->ip;
+		memcpy(arphdr->ar_sha, interface->addr, 6);
+		arphdr->ar_sip = interface->ip;
 		memcpy(arphdr->ar_tha, arp_hdr->ar_sha, 6);
 		arphdr->ar_tip = arp_hdr->ar_sip;
 		printf("Sending ARP reply\n");
-		sr_send_packet(sr, buf, len, sr->if_list->name);
+		sr_send_packet(sr, buf, len, interface->name);
+		free(buf);
 	}
 	return;
 }
 
 /* Handles sending out ARP requests at the correct time intervals */
-void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
+int handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
 	if(difftime(time(NULL), request->sent)>1.0){
-		if(request->times_sent >= 5){
+		if(request->times_sent == 5){
 			/* send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_dest_host); */
 			sr_arpreq_destroy(cache,request);
+			request = NULL;
+			return 2;
 		}
 		else{
 			send_arpreq(sr, request);
 			request->sent = time(NULL);
 			request->times_sent++;
+			return 1;
 		}
 	}
+	return 0;
 }
 
 /* Iterate through and send all packets of a request */
 void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
 	printf("Sending request packets\n");
-	struct sr_packet *current = request->packets;
-	if(current!=NULL){
-		sr_send_packet(sr, current->buf, current->len, current->iface);
+	struct sr_packet *current = NULL;
+	if(request->packets != NULL){
+		current = request->packets;
+	}
+	struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, request->ip);
+	if(current!=NULL && entry != NULL){
+		sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)(current->buf);
+		struct sr_if* interface = sr_get_interface(sr, current->iface);
+		memcpy(ehdr->ether_dhost, entry->mac, 6);
+		memcpy(ehdr->ether_shost, interface->addr, 6);
+		printf("PACKET SENT\n");
+		sr_send_packet(sr, current->buf, current->len, interface->name);
 	}
 	struct sr_packet *next = NULL;
-	if(current!=NULL && current->next!=NULL){
+	if(current!=NULL && entry!= NULL && current->next!=NULL){
 		next = current->next;
 	}
 	while(next!=NULL){
 		current = next;
 		next = current->next;
+		sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)(current->buf);
+		struct sr_if* interface = sr_get_interface(sr, current->iface);
+		memcpy(ehdr->ether_dhost, entry->mac, 6);
+		memcpy(ehdr->ether_shost, interface->addr, 6);
+		printf("PACKET SENT\n");
 		sr_send_packet(sr, current->buf, current->len, current->iface);
+	}
+	if(entry!=NULL){
+		free(entry);
 	}
 }
 
 /* Handle when an ARP reply is received */
 void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
-	struct sr_arpcache arpcache = sr->cache;
     sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet+ sizeof(sr_ethernet_hdr_t));
-    struct sr_arpreq *request = sr_arpcache_insert(&arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
-	if(request != NULL){
+    print_addr_eth(arp_hdr->ar_sha);
+    print_addr_ip_int(ntohl(arp_hdr->ar_sip));
+    struct sr_arpreq *request = sr_arpcache_insert(&sr->cache, arp_hdr->ar_sha, arp_hdr->ar_sip);
+    struct sr_arpentry* entry = NULL;
+    if(request!=NULL){
+    	entry = sr_arpcache_lookup(&sr->cache, request->ip);
+    }
+	if(request != NULL && entry != NULL){
 		printf("ARP found in cache\n");
 	    send_reqpack(request, sr);
-		sr_arpreq_destroy(&arpcache,request);
+		sr_arpreq_destroy(&sr->cache,request);
 	}
 	else{
 		printf("ARP not found in cache\n");
@@ -197,20 +225,22 @@ void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request){
 	uint8_t tstf[6] = {0,0,0,0,0,0};
 	sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)buf;
 	sr_arp_hdr_t *arphdr = (sr_arp_hdr_t *)(buf+sizeof(sr_ethernet_hdr_t));
+	struct sr_if* interface = sr_get_interface(sr, request->packets->iface);
 	memcpy(ehdr->ether_dhost, ffff, 6);
-	memcpy(ehdr->ether_shost, sr->if_list->addr, 6);
+	memcpy(ehdr->ether_shost, interface->addr, 6);
 	ehdr->ether_type = htons(ethertype_arp);
 	arphdr->ar_op = htons(arp_op_request);
 	arphdr->ar_hrd = htons(1);
 	arphdr->ar_pro = htons(2048);
 	arphdr->ar_hln = 6;
 	arphdr->ar_pln = 4;
-	memcpy(arphdr->ar_sha, sr->if_list->addr, 6);
-	arphdr->ar_sip = sr->if_list->ip;
+	memcpy(arphdr->ar_sha, interface->addr, 6);
+	arphdr->ar_sip = interface->ip;
 	memcpy(arphdr->ar_tha, tstf, 6);
 	arphdr->ar_tip = request->ip;
 	printf("Sending ARP request\n");
-	sr_send_packet(sr, buf, 42, sr->if_list->name);
+	sr_send_packet(sr, buf, 42, interface->name);
+	free(buf);
 }
 
 void sr_handle_ip(struct sr_instance* sr, uint8_t * packet, unsigned int len, const char* interface) {
@@ -548,8 +578,9 @@ void sr_get_nexthop(struct sr_instance* sr, uint8_t* packet, unsigned int len, u
 		sr_ethernet_hdr_t* my_eth_hdr = (sr_ethernet_hdr_t*)(packet);
 		memcpy(my_eth_hdr->ether_dhost, my_arp->mac, 6);
 		memcpy(my_eth_hdr->ether_shost, interface->addr, 6);
+		printf("FIRST TRY\n");
 		sr_send_packet(sr, packet, len, interface->name);
-		sr_arpreq_destroy(&sr->cache, my_arp);
+		/* Free entry? */
 	}
 	else {
 		struct sr_arpreq *request = sr_arpcache_queuereq(&sr->cache, s_addr, packet, len, interface->name);
