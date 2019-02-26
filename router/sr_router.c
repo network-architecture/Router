@@ -134,6 +134,7 @@ void handle_arprequest(struct sr_instance* sr, uint8_t * packet, unsigned int le
 		printf("Sending ARP reply\n");
 		sr_send_packet(sr, buf, len, sr->if_list->name);
 	}
+	return;
 }
 
 /* Handles sending out ARP requests at the correct time intervals */
@@ -186,11 +187,24 @@ void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
 
 /* Sends an ARP request */
 void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request){
+	uint8_t *buf = malloc(42*sizeof(uint8_t));
+	uint8_t tstf[6] = {0,0,0,0,0,0};
+	sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)buf;
+	sr_arp_hdr_t *arphdr = (sr_arp_hdr_t *)(buf+sizeof(sr_ethernet_hdr_t));
+	memcpy(ehdr->ether_dhost, tstf, 6);
+	memcpy(ehdr->ether_shost, sr->if_list->addr, 6);
+	ehdr->ether_type = htons(ethertype_arp);
+	arphdr->ar_op = htons(arp_op_request);
+	arphdr->ar_hrd = 1;
+	arphdr->ar_pro = 2048;
+	arphdr->ar_hln = 6;
+	arphdr->ar_pln = 4;
+	memcpy(arphdr->ar_sha, sr->if_list->addr, 6);
+	arphdr->ar_sip = sr->if_list->ip;
+	memcpy(arphdr->ar_tha, tstf, 6);
+	arphdr->ar_tip = request->ip;
 	printf("Sending ARP request\n");
-	uint8_t *buf = malloc(56*sizeof(uint8_t));
-	sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(buf);
-	/* TODO FILL WITH DATA */
-	sr_send_packet(sr, buf , 56 , request->packets->iface);
+	sr_send_packet(sr, buf, 42, sr->if_list->name);
 }
 
 void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len, const char* iface) {
@@ -262,7 +276,8 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * buf, unsigned int len, const
 			printf("found next hop\n");
 			struct sr_arpentry *entry = sr_arpcache_lookup(&sr->cache, (uint32_t)nxt_hp->dest.s_addr);
 			if(entry!=NULL){
-				/* TODO CHANGE DATA TO BE CORRECT */
+				sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)buf;
+				memcpy(ehdr->ether_dhost, entry->mac, 6);
 				sr_send_packet(sr , buf , len , iface);
 				sr_arpreq_destroy(&sr->cache, entry);
 			}

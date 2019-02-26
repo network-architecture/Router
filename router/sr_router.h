@@ -72,6 +72,7 @@ int send_icmp_pkt(struct sr_instance* , uint8_t* , uint8_t , uint8_t );
 void handle_arpreply(struct sr_instance* sr, uint8_t * packet);
 void choose_arp(struct sr_instance* sr, uint8_t * packet, unsigned int len, const char* iface);
 void handle_arprequest(struct sr_instance* sr, uint8_t * buf, unsigned int len, const char* iface);
+void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request);
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );
