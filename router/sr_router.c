@@ -146,7 +146,7 @@ void handle_arprequest(struct sr_instance* sr, uint8_t * packet, unsigned int le
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
 	if(difftime(time(NULL), request->sent)>1.0){
 		if(request->times_sent >= 5){
-			send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_dest_host);
+			/* send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_dest_host); */
 			sr_arpreq_destroy(cache,request);
 		}
 		else{
@@ -214,6 +214,7 @@ void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request){
 
 void sr_handle_ip(struct sr_instance* sr, uint8_t * packet, unsigned int len, const char* interface) {
   	if (len < ethernet_hdr_size + ip_hdr_size) {
+  		printf("Packet too small\n");
   		return;
   	}
   	sr_ip_hdr_t *my_ip_hdr = (sr_ip_hdr_t*)(packet + ethernet_hdr_size);
@@ -221,6 +222,7 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * packet, unsigned int len, co
   	my_ip_hdr->ip_sum = 0;
   	uint32_t calculated_cksum = cksum(my_ip_hdr, my_ip_hdr->ip_hl * 4);
   	if (calculated_cksum != received_cksum) {
+  		printf("Checksum incorrect\n");
   		return;
   	}
   	my_ip_hdr->ip_sum = calculated_cksum;
@@ -550,7 +552,7 @@ void sr_get_nexthop(struct sr_instance* sr, uint8_t* packet, unsigned int len, u
 	}
 	else {
 		struct sr_arpreq *request = sr_arpcache_queuereq(&sr->cache, s_addr, packet, len, interface->name);
-    handle_arpreq(sr,request,&sr->cache);
+		handle_arpreq(sr,request,&sr->cache);
 	}
 }
 
