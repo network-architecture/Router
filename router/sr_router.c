@@ -90,13 +90,15 @@ void sr_handlepacket(struct sr_instance* sr,
   uint16_t my_ethertype = ethertype(packet);
 	switch (my_ethertype) {
 
-	case ethertype_ip:
-		printf("The packet is a data packet\n");
-		sr_handle_ip(sr, packet + ethernet_hdr_size, len - ethernet_hdr_size, interface);
-		return;
-	case ethertype_arp:
-		choose_arp(sr, packet, len, interface);
-		return;
+		case ethertype_ip:
+			printf("The packet is a data packet\n");
+			/*sr_handle_ip(sr, packet + ethernet_hdr_size, len - ethernet_hdr_size, interface);*/
+			sr_handle_ip(sr, packet, len, interface);
+			return;
+
+		case ethertype_arp:
+			choose_arp(sr, packet, len, interface);
+			return;
 	}
 
 }/* end sr_ForwardPacket */
@@ -549,8 +551,10 @@ void sr_get_nexthop(struct sr_instance* sr, uint8_t* packet, unsigned int len, u
 		memcpy(my_eth_hdr->ether_shost, interface->addr, 6);
 		sr_send_packet(sr, packet, len, interface->name);
 		sr_arpreq_destroy(&sr->cache, my_arp);
+		free(my_arp);
 	}
 	else {
+		sr_arpcache_queuereq(&sr->cache, s_addr, packet, len, interface->name);
 		struct sr_arpreq *request = sr_arpcache_queuereq(&sr->cache, s_addr, packet, len, interface->name);
 		handle_arpreq(sr,request,&sr->cache);
 	}

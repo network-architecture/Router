@@ -17,15 +17,10 @@
   See the comments in the header file for an idea of what it should look like.
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
-    /* Fill this in */
-	printf("Sweeping\n");
+	/* Fill this in */
 	struct sr_arpcache arpcache = sr->cache;
 	struct sr_arpreq *current = arpcache.requests;
 	if(current!=NULL){
-<<<<<<< HEAD
-		/* handle_arpreq(current, &arpcache); */
-=======
->>>>>>> 3126fe24025b28d6cedb0fd0332c7f2b6524b005
 		handle_arpreq(sr, current, &arpcache);
 	}
 	struct sr_arpreq *next = NULL;
@@ -35,10 +30,6 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 	while(next!=NULL){\
 		current = next;
 		next = current->next;
-<<<<<<< HEAD
-		/* handle_arpreq(current, &arpcache); */
-=======
->>>>>>> 3126fe24025b28d6cedb0fd0332c7f2b6524b005
 		handle_arpreq(sr,current, &arpcache);
 	}
 }
