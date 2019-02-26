@@ -92,7 +92,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
 	case ethertype_ip:
 		printf("The packet is a data packet\n");
-		sr_handle_ip(sr, packet + ethernet_hdr_size, len - ethernet_hdr_size, interface);
+		sr_handle_ip(sr, packet, len, interface);
 		return;
 	case ethertype_arp:
 		choose_arp(sr, packet, len, interface);
@@ -193,15 +193,16 @@ void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
 /* Sends an ARP request */
 void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request){
 	uint8_t *buf = malloc(42*sizeof(uint8_t));
+	uint8_t ffff[6] = {255,255,255,255,255,255};
 	uint8_t tstf[6] = {0,0,0,0,0,0};
 	sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)buf;
 	sr_arp_hdr_t *arphdr = (sr_arp_hdr_t *)(buf+sizeof(sr_ethernet_hdr_t));
-	memcpy(ehdr->ether_dhost, tstf, 6);
+	memcpy(ehdr->ether_dhost, ffff, 6);
 	memcpy(ehdr->ether_shost, sr->if_list->addr, 6);
 	ehdr->ether_type = htons(ethertype_arp);
 	arphdr->ar_op = htons(arp_op_request);
-	arphdr->ar_hrd = 1;
-	arphdr->ar_pro = 2048;
+	arphdr->ar_hrd = htons(1);
+	arphdr->ar_pro = htons(2048);
 	arphdr->ar_hln = 6;
 	arphdr->ar_pln = 4;
 	memcpy(arphdr->ar_sha, sr->if_list->addr, 6);
