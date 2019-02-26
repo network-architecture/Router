@@ -18,10 +18,9 @@
 */
 void sr_arpcache_sweepreqs(struct sr_instance *sr) { 
 	/* Fill this in */
-	struct sr_arpcache arpcache = sr->cache;
-	struct sr_arpreq *current = arpcache.requests;
+	struct sr_arpreq *current = sr->cache.requests;
 	if(current!=NULL){
-		if(handle_arpreq(sr, current, &arpcache)==2){
+		if(handle_arpreq(sr, current, &sr->cache)==2){
 			sr->cache.requests = NULL;
 			current = NULL;
 		}
@@ -33,7 +32,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
 	while(next!=NULL){
 		current = next;
 		next = current->next;
-		handle_arpreq(sr,current, &arpcache);
+		handle_arpreq(sr,current, &sr->cache);
 	}
 }
 
