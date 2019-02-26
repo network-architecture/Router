@@ -22,21 +22,21 @@
 #include "sr_rt.h"
 #include "sr_router.h"
 
-struct sr_rt* sr_longest_prefix_match(struct sr_instance* sr, uint32_t tip){
-	struct sr_rt* ret = 0;
-	uint32_t best = 0,mask;
-	struct sr_rt* rt_walker = sr->routing_table;
-	while (rt_walker) {
-		mask = rt_walker->mask.s_addr;
-		if ((mask&rt_walker->dest.s_addr) == (mask&tip)) {
-		   	if (!ret || (mask > best)) {
-		   		ret = rt_walker;
-		   		best = mask;
+struct sr_rt* sr_longest_prefix_match(struct sr_instance* sr, uint32_t my_ip) {
+	struct sr_rt* result = 0;
+	uint32_t best_match = 0,mask;
+	struct sr_rt* my_rt_walker = sr->routing_table;
+	while (my_rt_walker) {
+		mask = my_rt_walker->mask.s_addr;
+		if ((mask & my_rt_walker->dest.s_addr) == (mask & my_ip)) {
+		   	if (!result || (mask > best_match)) {
+		   		result = my_rt_walker;
+		   		best_match = mask;
 		   	}
 		}
-		rt_walker = rt_walker->next;
+		my_rt_walker = my_rt_walker->next;
 	}
-	return ret;
+	return result;
 }
 
 /*---------------------------------------------------------------------

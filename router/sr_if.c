@@ -54,7 +54,7 @@ struct sr_if* sr_get_interface(struct sr_instance* sr, const char* name)
     return 0;
 } /* -- sr_get_interface -- */
 
-struct sr_if* sr_get_interface_by_ip(struct sr_instance* sr,uint32_t _ip){
+struct sr_if* sr_get_interface_by_ip(struct sr_instance* sr, uint32_t my_ip){
     struct sr_if* if_walker = 0;
 
     /* -- REQUIRES -- */
@@ -64,7 +64,7 @@ struct sr_if* sr_get_interface_by_ip(struct sr_instance* sr,uint32_t _ip){
 
     while(if_walker)
     {
-       if(if_walker->ip==_ip)
+       if (if_walker->ip == my_ip)
         { return if_walker; }
         if_walker = if_walker->next;
     }
