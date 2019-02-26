@@ -165,9 +165,17 @@ int handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_a
 /* Iterate through and send all packets of a request */
 void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
 	printf("Sending request packets\n");
-	struct sr_packet *current = request->packets;
-	if(current!=NULL){
-		sr_send_packet(sr, current->buf, current->len, current->iface);
+	struct sr_packet *current = NULL;
+	if(request->packets != NULL){
+		current = request->packets;
+	}
+	struct sr_arpentry* entry = sr_arpcache_lookup(&sr->cache, request->ip);
+	if(current!=NULL && entry != NULL){
+		sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)(current->buf);
+		struct sr_if* interface = sr_get_interface(sr, current->iface);
+		memcpy(ehdr->ether_dhost, entry->mac, 6);
+		memcpy(ehdr->ether_shost, interface->addr, 6);
+		sr_send_packet(sr, current->buf, current->len, interface->name);
 	}
 	struct sr_packet *next = NULL;
 	if(current!=NULL && current->next!=NULL){
@@ -178,6 +186,9 @@ void send_reqpack(struct sr_arpreq *request, struct sr_instance* sr){
 		next = current->next;
 		sr_send_packet(sr, current->buf, current->len, current->iface);
 	}
+	if(entry!=NULL){
+		free(entry);
+	}
 }
 
 /* Handle when an ARP reply is received */
@@ -186,9 +197,10 @@ void handle_arpreply(struct sr_instance* sr, uint8_t * packet){
     sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *)(packet+ sizeof(sr_ethernet_hdr_t));
     struct sr_arpreq *request = sr_arpcache_insert(&arpcache, arp_hdr->ar_sha, arp_hdr->ar_sip);
 	if(request != NULL){
+		printf("IP: %d\n",request->ip);
 		printf("ARP found in cache\n");
 	    send_reqpack(request, sr);
-		sr_arpreq_destroy(&arpcache,request);
+		/* sr_arpreq_destroy(&arpcache,request); */
 	}
 	else{
 		printf("ARP not found in cache\n");
@@ -202,20 +214,21 @@ void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request){
 	uint8_t tstf[6] = {0,0,0,0,0,0};
 	sr_ethernet_hdr_t *ehdr = (sr_ethernet_hdr_t *)buf;
 	sr_arp_hdr_t *arphdr = (sr_arp_hdr_t *)(buf+sizeof(sr_ethernet_hdr_t));
+	struct sr_if* interface = sr_get_interface(sr, request->packets->iface);
 	memcpy(ehdr->ether_dhost, ffff, 6);
-	memcpy(ehdr->ether_shost, sr->if_list->addr, 6);
+	memcpy(ehdr->ether_shost, interface->addr, 6);
 	ehdr->ether_type = htons(ethertype_arp);
 	arphdr->ar_op = htons(arp_op_request);
 	arphdr->ar_hrd = htons(1);
 	arphdr->ar_pro = htons(2048);
 	arphdr->ar_hln = 6;
 	arphdr->ar_pln = 4;
-	memcpy(arphdr->ar_sha, sr->if_list->addr, 6);
-	arphdr->ar_sip = sr->if_list->ip;
+	memcpy(arphdr->ar_sha, interface->addr, 6);
+	arphdr->ar_sip = interface->ip;
 	memcpy(arphdr->ar_tha, tstf, 6);
 	arphdr->ar_tip = request->ip;
 	printf("Sending ARP request\n");
-	sr_send_packet(sr, buf, 42, sr->if_list->name);
+	sr_send_packet(sr, buf, 42, interface->name);
 	free(buf);
 }
 
