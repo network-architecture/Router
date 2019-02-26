@@ -138,23 +138,28 @@ void handle_arprequest(struct sr_instance* sr, uint8_t * packet, unsigned int le
 		arphdr->ar_tip = arp_hdr->ar_sip;
 		printf("Sending ARP reply\n");
 		sr_send_packet(sr, buf, len, sr->if_list->name);
+		free(buf);
 	}
 	return;
 }
 
 /* Handles sending out ARP requests at the correct time intervals */
-void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
+int handle_arpreq(struct sr_instance *sr, struct sr_arpreq *request, struct sr_arpcache *cache){
 	if(difftime(time(NULL), request->sent)>1.0){
-		if(request->times_sent >= 5){
+		if(request->times_sent == 5){
 			/* send_icmp_pkt(sr, request->packets->buf, icmp_unreachable, icmp_dest_host); */
 			sr_arpreq_destroy(cache,request);
+			request = NULL;
+			return 2;
 		}
 		else{
 			send_arpreq(sr, request);
 			request->sent = time(NULL);
 			request->times_sent++;
+			return 1;
 		}
 	}
+	return 0;
 }
 
 /* Iterate through and send all packets of a request */
@@ -211,6 +216,7 @@ void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request){
 	arphdr->ar_tip = request->ip;
 	printf("Sending ARP request\n");
 	sr_send_packet(sr, buf, 42, sr->if_list->name);
+	free(buf);
 }
 
 void sr_handle_ip(struct sr_instance* sr, uint8_t * packet, unsigned int len, const char* interface) {
@@ -549,7 +555,7 @@ void sr_get_nexthop(struct sr_instance* sr, uint8_t* packet, unsigned int len, u
 		memcpy(my_eth_hdr->ether_dhost, my_arp->mac, 6);
 		memcpy(my_eth_hdr->ether_shost, interface->addr, 6);
 		sr_send_packet(sr, packet, len, interface->name);
-		sr_arpreq_destroy(&sr->cache, my_arp);
+		/* Free entry? */
 	}
 	else {
 		struct sr_arpreq *request = sr_arpcache_queuereq(&sr->cache, s_addr, packet, len, interface->name);
