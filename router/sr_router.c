@@ -255,26 +255,17 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * packet, unsigned int len, co
   	sr_ip_hdr_t *my_ip_hdr = (sr_ip_hdr_t*)(packet + ethernet_hdr_size);
   	uint32_t received_cksum = my_ip_hdr->ip_sum;
   	my_ip_hdr->ip_sum = 0;
-  	uint32_t calculated_cksum = cksum(my_ip_hdr, my_ip_hdr->ip_hl * 4);
-  	if (calculated_cksum != received_cksum) {
+  	if (cksum(my_ip_hdr, my_ip_hdr->ip_hl * 4) != received_cksum) {
   		return;
   	}
-  	my_ip_hdr->ip_sum = calculated_cksum;
+  	my_ip_hdr->ip_sum = cksum(my_ip_hdr, my_ip_hdr->ip_hl * 4);
   	struct sr_if *to_router_interface = sr_find_ip(sr, my_ip_hdr->ip_dst);
-  	if (to_router_interface) {
-  		if (my_ip_hdr->ip_p == ip_protocol_icmp) {
-  			sr_icmp_echo_reply(sr, my_ip_hdr);
-  		}
-		else if (my_ip_hdr->ip_p == ip_protocol_udp || my_ip_hdr->ip_p == ip_protocol_tcp) {
-			sr_icmp_port_unreachable(sr, my_ip_hdr);
-  		}
- 	}
-	else {
-  		if (my_ip_hdr->ip_ttl <= 1) {
+  	if (! to_router_interface) {
+		if (1 >= my_ip_hdr->ip_ttl) {
 			sr_icmp_time_exceeded(sr, my_ip_hdr);			
   			return;
   		}
-  		my_ip_hdr->ip_ttl = my_ip_hdr->ip_ttl - 1;
+  		my_ip_hdr->ip_ttl--;
 	  	my_ip_hdr->ip_sum = 0;
 	  	my_ip_hdr->ip_sum = cksum(my_ip_hdr, my_ip_hdr->ip_hl * 4);
 		struct sr_rt *my_match = sr_longest_prefix_match(sr, my_ip_hdr->ip_dst);
@@ -284,6 +275,15 @@ void sr_handle_ip(struct sr_instance* sr, uint8_t * packet, unsigned int len, co
 		}
 		else {
 			sr_icmp_dest_net_unreachable(sr, my_ip_hdr);
+  		}
+
+ 	}
+	else {
+  		if (my_ip_hdr->ip_p == ip_protocol_icmp) {
+  			sr_icmp_echo_reply(sr, my_ip_hdr);
+  		}
+		else if (my_ip_hdr->ip_p == ip_protocol_udp || my_ip_hdr->ip_p == ip_protocol_tcp) {
+			sr_icmp_port_unreachable(sr, my_ip_hdr);
   		}
 	}
 }
