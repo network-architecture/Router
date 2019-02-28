@@ -73,13 +73,13 @@ void handle_arpreply(struct sr_instance* sr, uint8_t * packet);
 void choose_arp(struct sr_instance* sr, uint8_t * packet, unsigned int len, const char* iface);
 void handle_arprequest(struct sr_instance* sr, uint8_t * buf, unsigned int len, const char* iface);
 void send_arpreq(struct sr_instance* sr, struct sr_arpreq *request);
+
 void sr_icmp_time_exceeded(struct sr_instance*,sr_ip_hdr_t*);
 void sr_icmp_echo_reply(struct sr_instance*,sr_ip_hdr_t*);
 
-void sr_icmp_dest_net_unreachable(struct sr_instance*,sr_ip_hdr_t*,uint8_t);
-void sr_icmp_dest_host_unreachable(struct sr_instance*,sr_ip_hdr_t*,uint8_t);
-void sr_icmp_port_unreachable(struct sr_instance*,sr_ip_hdr_t*,uint8_t);
-/*void sr_icmp_dest_unr(struct sr_instance*,sr_ip_hdr_t*,uint8_t);*/
+void sr_icmp_dest_net_unreachable(struct sr_instance*,sr_ip_hdr_t*);
+void sr_icmp_dest_host_unreachable(struct sr_instance*,sr_ip_hdr_t*);
+void sr_icmp_port_unreachable(struct sr_instance*,sr_ip_hdr_t*);
 
 void sr_get_nexthop(struct sr_instance* sr,uint8_t* packet,unsigned int len,uint32_t tip,struct sr_if*);
 
