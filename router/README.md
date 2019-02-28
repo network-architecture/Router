@@ -1,2 +1,3 @@
-Brandon Dalla Rosa
-Carter Gay
+# Group Members
+* Brandon Dalla Rosa
+* Carter Gay
